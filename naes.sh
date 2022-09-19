@@ -2,7 +2,7 @@
 
 dashsep="----------------"
 user=$(whoami)
-desktopFolder="/home/$user/Desktop/"
+outputFolder="/home/$user/.NAES/Results"
 http="80"
 https="443"
 althttp="8080"
@@ -26,7 +26,7 @@ Help()
 ExploitLDAP()
 {
 target=$1
-resultsFolder=$desktopFolder/$target
+resultsFolder=$outputFolder/$target
 FILE=$resultsFolder/$target.nmap.simple
 if test -f "$FILE"; then
     ldapResults="$resultsFolder/ldap"
@@ -65,7 +65,7 @@ resultsFolder=$1
 resultsFile=$2
 target=$3
 filename="allports.txt"
-cat "$resultsFolder//$filename"
+cat "$resultsFolder/$filename"
 results=$(cat $resultsFolder/$filename)
 echo $dashsep
 if [[ $(cat $resultsFolder/$filename | grep -i 'ldap') ]]; then
@@ -103,6 +103,7 @@ if [[ $FQDN != "" ]]; then
     FQDN=$(echo $FQDN | awk -F : '{print $2}'| awk '{ gsub(/ /,""); print }')
     printf "FQDN: $FQDN \n" | tee -a $varsFile
 fi
+echo "=== End of Results ===" | tee -a $varsFile
 }
 
 Full_Scan(){
@@ -118,7 +119,7 @@ Analyse_Results $resultsPath $resultsFile $target
 Get_Open_Ports()
 {
 target=$1
-resultsPath="$desktopFolder/$target"
+resultsPath="$outputFolder/$target"
 mkdir -p $resultsPath
 FILE=$resultsPath/$target.nmap
 if test -f "$FILE"; then
@@ -128,7 +129,7 @@ if test -f "$FILE"; then
         if [[ "$input" == "n" || "$input" == "N" ]]; then
             exit
         else
-            Analyse_Results $resultsPath $FILE
+            Analyse_Results $resultsPath $FILE $target
             exit
         fi
     fi
@@ -139,18 +140,18 @@ top_ports=$(echo "$top_ports_nmap" | grep ^[0-9] | cut -d '/' -f 1,3)
 top_ports_formatted=$(echo "$top_ports_nmap"| grep ^[0-9] | awk -F '/tcp' '{print $1 " " $2}' | awk '{print $1 " " $3}') 
 echo "Out of the top 1000 ports, the following responded as OPEN. Investigate these ports further:"
 echo "$top_ports_formatted" | tee $resultsPath/top1000.txt
-printf "$dashsep\n"
+echo "$dashsep"
 echo "Initial analysis:"
 if [[ "$top_ports" == *"$http"* || "$top_ports" == *"$https"* || "$top_ports" == *"$althttp"*  ]]; then
  printf "* There's something running on one of the standard HTTP ports, so have a look for a website. \n "
 if [[ "$top_ports" == *"$http"* ]]; then
-printf "\t Check http://$target \n"
+printf "\t Port 80 is open --> Check http://$target \n"
 fi
 if [[ "$top_ports" == *"$https"* ]]; then
-printf "\t Check https://$target \n"
+printf "\t Port 443 is open --> Check https://$target \n"
 fi
 if [[ "$top_ports" == *"$althttp"* ]]; then
-printf "\t Check http://$target:8080 \n"
+printf "\t Port 8080 is open --> Check http://$target:8080 \n"
 fi
  printf "Look for subdomains with wfuzz:\n wfuzz -c -w /path/to/SecLists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u $target -t 10 \n"
 fi
@@ -187,7 +188,9 @@ while getopts ":ht:a:e:" option; do
          exit;;
       a)
          atarget=$OPTARG
-         Analyse_Results "/home/$user/Desktop/$atarget/$atarget.nmap"
+         targetFolder="$outputFolder/$atarget"
+         nmapFile="$targetFolder/$atarget.nmap"
+         Analyse_Results $targetFolder $nmapFile $atarget
          exit;;
       e)
          protocol=$OPTARG
