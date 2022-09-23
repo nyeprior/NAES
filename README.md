@@ -1,7 +1,6 @@
 # NAES
 not-another-enumeration-script
 
-
 # Usage
 
 `naes.sh -t [TARGET IP ADDRESS]`
