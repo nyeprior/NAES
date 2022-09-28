@@ -3,6 +3,9 @@
 dashsep="----------------"
 user=$(whoami)
 outputFolder="/home/$user/.NAES/Results"
+binFolder="./bin"
+
+#PORT NUMBERS
 http="80"
 https="443"
 althttp="8080"
@@ -10,11 +13,32 @@ dns="53"
 kerb="88"
 ldap="389"
 
+#COLOURS
+C=$(printf '\033')
+RED="${C}[1;31m"
+GREEN="${C}[1;32m"
+YELLOW="${C}[1;33m"
+BLUE="${C}[1;34m"
+URL="${C}[1;34m${C}[4m"
+ITALIC_BLUE="${C}[1;34m${C}[3m"
+LIGHT_MAGENTA="${C}[1;95m"
+SED_LIGHT_MAGENTA="${C}[1;95m&${C}[0m"
+LIGHT_CYAN="${C}[1;96m"
+SED_LIGHT_CYAN="${C}[1;96m&${C}[0m"
+LG="${C}[1;37m" #LightGray
+SED_LG="${C}[1;37m&${C}[0m"
+DG="${C}[1;90m" #DarkGray
+SED_DG="${C}[1;90m&${C}[0m"
+PLAIN="${C}[0m"
+UNDERLINED="${C}[5m"
+ITALIC="${C}[3m"
+
+
 Help() {
 	# Display Help
 	echo "Add description of the script functions here."
 	echo
-	echo "Syntax: enum.sh [-t|h|v|V]"
+	echo "Syntax: naes.sh [-t|h]"
 	echo "options:"
 	echo "-t [target-ip]     Enumerate a target."
 	echo "-h     Print this help."
@@ -30,11 +54,11 @@ ExploitLDAP() {
 		mkdir -p "$ldapResults"
 		dn=$(grep <"$FILE" 'Base dn' | awk -F ': ' '{print $2}')
 		domain=$(grep <"$FILE" 'Domain name:' | awk -F ': ' '{print $2}')
-		ldapsearch=$(ldapsearch -x -b "$dn" -h "$target" -p 389 | tee "$ldapResults"/ldapsearch.txt)
-		windapsearch=$(./ldap/windapsearch -m users -d "$domain" --dc "$target" -U | tee "$ldapResults"/windapsearch.txt)
+		ldapsearch=$("$binFolder"/ldapsearch -x -b "$dn" -h "$target" -p 389 | tee "$ldapResults"/ldapsearch.txt)
+		windapsearch=$("$binFolder"/ldap/windapsearch -m users -d "$domain" --dc "$target" -U | tee "$ldapResults"/windapsearch.txt)
 		users=$(echo "$windapsearch" | grep 'userPrincipalName' | awk -F ': ' '{print $2}' | tee "$ldapResults"/identifiedUsers.txt)
 		ou=$(echo "$windapsearch" | grep "OU=" | awk -F 'OU=' '{$1=""; print $0}' | awk -F 'DC=' '{print $1}' | sed s/,$// | awk -F ',' '{print $1; print $2; print $3;}' | awk '!seen[$0]++' | tee "$resultsFolder"/OU.txt)
-		objectClass=$(./ldap/windapsearch -m custom --filter="(objectClass=*)" -d "$domain" --dc "$target" -U >"$ldapResults"/objectClasses.txt)
+		objectClass=$("$binFolder"/ldap/windapsearch -m custom --filter="(objectClass=*)" -d "$domain" --dc "$target" -U >"$ldapResults"/objectClasses.txt)
 		cn=$(grep <"$ldapResults"/objectClasses.txt -a 'CN=' | awk -F ': ' '{print $2}' | awk -F [=,] '{print $2}' | awk '!seen[$0]++' | tee "$ldapResults"/CN.txt)
 	else
 		Analyse_Results "$resultsFolder"/"$target".nmap
@@ -61,38 +85,37 @@ Analyse_Results() {
 	resultsFile=$2
 	target=$3
 	filename="allports.txt"
-	cat "$resultsFolder/$filename"
-	results=$(cat "$resultsFolder/$filename")
+	results=$(cat "$resultsFolder"/"$filename")
 	echo $dashsep
 	if grep <"$resultsFolder"/"$filename" -iq 'ldap'; then
-		printf "LDAP --> https://book.hacktricks.xyz/network-services-pentesting/pentesting-ldap"
+		printf "${GREEN}LDAP${PLAIN}  --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-ldap${PLAIN} "
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'ssh'; then
-		printf "SSH --> https://book.hacktricks.xyz/network-services-pentesting/pentesting-ssh"
+		printf "${GREEN}SSH${PLAIN}  --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-ssh${PLAIN} "
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'http\|https\|http-alt'; then
-		printf "WEB --> https://book.hacktricks.xyz/network-services-pentesting/pentesting-web \n"
+		printf "${GREEN}WEB${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-web${PLAIN} \n"
 		printf "Subdomain Bruteforce:\n\t"
 		printf "wfuzz -c -w /path/to/SecLists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u %s -t 10" "$target"
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'dns\|domain'; then
-		printf "DNS --> https://book.hacktricks.xyz/network-services-pentesting/pentesting-dns"
+		printf "${GREEN}DNS${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-dns${PLAIN} "
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'smb\|microsoft-ds\|netbios'; then
-		printf "SMB --> https://book.hacktricks.xyz/network-services-pentesting/pentesting-smb \n"
+		printf "${GREEN}SMB${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-smb \n${PLAIN} "
 		printf "Try listing shares:\n\tsmbclient --no-pass -L //%s" "$target"
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'kerberos'; then
-		printf "Kerberos --> https://book.hacktricks.xyz/network-services-pentesting/pentesting-kerberos-88"
+		printf "${GREEN}Kerberos${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-kerberos-88${PLAIN} "
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'snmp'; then
-		printf "Kerberos --> https://book.hacktricks.xyz/network-services-pentesting/pentesting-snmp"
+		printf "${GREEN}SNMP${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-snmp${PLAIN} "
 		printf "\n%s\n" $dashsep
 	fi
 	domainName=$(grep <"$resultsFile" -i 'Domain name:\|Domain:')
@@ -109,6 +132,7 @@ Analyse_Results() {
 		printf "FQDN: %s \n" "$FQDN" | tee -a "$varsFile"
 	fi
 	echo "=== End of Results ===" | tee -a "$varsFile"
+	printf "Full results can be found in ${YELLOW} %s${PLAIN}\n" "$resultsFolder"
 }
 
 Full_Scan() {
@@ -164,7 +188,6 @@ Get_Open_Ports() {
 		if [[ "$top_ports" == *"$althttp"* ]]; then
 			printf "\t Port 8080 is open --> Check http://%s:8080 \n" "$target"
 		fi
-		printf "Look for subdomains with wfuzz:\n wfuzz -c -w /path/to/SecLists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u %s -t 10 \n" "$target"
 	fi
 	if [[ "$top_ports" == *"$dns"* && "$top_ports" == *"$kerb"* && "$top_ports" == *"$ldap"* ]]; then
 		printf "* %s could be a Domain Controller. \n Port 88 (Kerberos), 53 (DNS) and 389 (LDAP) are open on the host.\n" "$target"
@@ -175,9 +198,10 @@ Get_Open_Ports() {
 	all_ports=$(echo "$all_ports_nmap" | grep "^[0-9]" | cut -d '/' -f 1,3)
 	all_ports_formatted=$(echo "$all_ports_nmap" | grep "^[0-9]" | awk -F '/tcp' '{print $1 " " $2}' | awk '{print $1 " " $3}')
 	if [[ "$top_ports" == "$all_ports" ]]; then
-		echo "No new ports found"
+		printf "${RED}No new ports found${PLAIN}\n"
+		cp "$resultsPath"/top1000.txt "$resultsPath"/allports.txt
 	else
-		echo "More ports found!"
+		printf "${GREEN}More ports found!${PLAIN}\n"
 		echo "The following ports responded as OPEN"
 		echo "$all_ports_formatted" | tee "$resultsPath"/allports.txt
 	fi
@@ -185,6 +209,9 @@ Get_Open_Ports() {
 	listofports=$(echo "$all_ports" | tr '\n' ',' | sed s/,$//)
 	Full_Scan "$target" "$listofports" "$resultsPath"
 }
+
+cat banner
+chmod +x -R ./bin
 
 while getopts ":ht:a:e:" option; do
 	case $option in
@@ -194,7 +221,7 @@ while getopts ":ht:a:e:" option; do
 		;;
 	t) # Enter a name
 		target=$OPTARG
-		echo "Target IP: $target"
+		printf "Target IP: ${YELLOW} %s${PLAIN}\n" "$target"
 		Get_Open_Ports "$target"
 		exit
 		;;
@@ -216,4 +243,3 @@ while getopts ":ht:a:e:" option; do
 		;;
 	esac
 done
-
