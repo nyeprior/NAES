@@ -1,8 +1,7 @@
 #!/bin/bash
 
 dashsep="----------------"
-user=$(whoami)
-outputFolder="/home/$user/.NAES/Results"
+outputFolder="Results"
 binFolder="./bin"
 
 #PORT NUMBERS
@@ -32,6 +31,19 @@ SED_DG="${C}[1;90m&${C}[0m"
 PLAIN="${C}[0m"
 UNDERLINED="${C}[5m"
 ITALIC="${C}[3m"
+
+# On Start
+cat banner
+chmod +x -R ./bin
+CONFIG_FILE=".config"
+if test -f "$CONFIG_FILE"; then
+	seclists=$(awk '$1=="SecLists:"{print $2}' $CONFIG_FILE)
+fi
+if [[ -z $seclists ]] ; then
+	seclists="/path/to/SecLists/folder"
+fi
+
+
 
 
 Help() {
@@ -98,17 +110,17 @@ Analyse_Results() {
 	if grep <"$resultsFolder"/"$filename" -iq 'http\|https\|http-alt'; then
 		printf "${GREEN}WEB${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-web${PLAIN} \n"
 		printf "DNS Subdomain Bruteforce:\n\t"
-		printf "wfuzz -c -w /path/to/SecLists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u %s -t 10" "$target"
+		printf "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u %s -t 10" "$target"
 		printf "\n%s\n" $dashsep
 		printf "Webpage Bruteforce:\n\t"
-		printf "wfuzz -c -w /path/to/SecLists/Discovery/Web-Content/big.txt --sc 200 -u %s/FUZZ -t 10" "$target"
+		printf "wfuzz -c -w $seclists/Discovery/Web-Content/big.txt --sc 200 -u %s/FUZZ -t 10" "$target"
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'dns\|domain'; then
 		printf "${GREEN}DNS${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-dns${PLAIN} "
 		printf "\n%s\n" $dashsep
 		printf "DNS Subdomain Bruteforce:\n\t"
-		printf "wfuzz -c -w /path/to/SecLists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u %s -t 10" "$target"
+		printf "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u %s -t 10" "$target"
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'smb\|microsoft-ds\|netbios'; then
@@ -215,9 +227,6 @@ Get_Open_Ports() {
 	listofports=$(echo "$all_ports" | tr '\n' ',' | sed s/,$//)
 	Full_Scan "$target" "$listofports" "$resultsPath"
 }
-
-cat banner
-chmod +x -R ./bin
 
 while getopts ":ht:a:e:" option; do
 	case $option in
