@@ -54,7 +54,7 @@ ExploitLDAP() {
 		mkdir -p "$ldapResults"
 		dn=$(grep <"$FILE" 'Base dn' | awk -F ': ' '{print $2}')
 		domain=$(grep <"$FILE" 'Domain name:' | awk -F ': ' '{print $2}')
-		ldapsearch=$("$binFolder"/ldapsearch -x -b "$dn" -h "$target" -p 389 | tee "$ldapResults"/ldapsearch.txt)
+		ldapsearch=$(ldapsearch -x -b "$dn" -H ldap://"$target"| tee "$ldapResults"/ldapsearch.txt)
 		windapsearch=$("$binFolder"/ldap/windapsearch -m users -d "$domain" --dc "$target" -U | tee "$ldapResults"/windapsearch.txt)
 		users=$(echo "$windapsearch" | grep 'userPrincipalName' | awk -F ': ' '{print $2}' | tee "$ldapResults"/identifiedUsers.txt)
 		ou=$(echo "$windapsearch" | grep "OU=" | awk -F 'OU=' '{$1=""; print $0}' | awk -F 'DC=' '{print $1}' | sed s/,$// | awk -F ',' '{print $1; print $2; print $3;}' | awk '!seen[$0]++' | tee "$resultsFolder"/OU.txt)
@@ -97,12 +97,18 @@ Analyse_Results() {
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'http\|https\|http-alt'; then
 		printf "${GREEN}WEB${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-web${PLAIN} \n"
-		printf "Subdomain Bruteforce:\n\t"
+		printf "DNS Subdomain Bruteforce:\n\t"
 		printf "wfuzz -c -w /path/to/SecLists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u %s -t 10" "$target"
+		printf "\n%s\n" $dashsep
+		printf "Webpage Bruteforce:\n\t"
+		printf "wfuzz -c -w /path/to/SecLists/Discovery/Web-Content/big.txt --sc 200 -u %s/FUZZ -t 10" "$target"
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'dns\|domain'; then
 		printf "${GREEN}DNS${PLAIN} --> ${URL}https://book.hacktricks.xyz/network-services-pentesting/pentesting-dns${PLAIN} "
+		printf "\n%s\n" $dashsep
+		printf "DNS Subdomain Bruteforce:\n\t"
+		printf "wfuzz -c -w /path/to/SecLists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.boxname.htb' -u %s -t 10" "$target"
 		printf "\n%s\n" $dashsep
 	fi
 	if grep <"$resultsFolder"/"$filename" -iq 'smb\|microsoft-ds\|netbios'; then
