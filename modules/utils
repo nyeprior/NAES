@@ -1,0 +1,128 @@
+#!/bin/bash
+
+#COLOURS
+C=$(printf '\033')
+RED="${C}[1;31m"
+GREEN="${C}[1;32m"
+YELLOW="${C}[1;33m"
+BLUE="${C}[1;34m"
+CYAN="${C}[1;96m"
+CODE="${C}[33;3m"
+URL="${C}[1;34m${C}[4m"
+PLAIN="${C}[0m"
+
+#BLOCKS OF COLOUR
+RED_BLOCK="${C}[0;41m"
+ORANGE_BLOCK="${C}[0;43m"
+YELLOW_BLOCK="${C}[0;103m"
+GREEN_BLOCK="${C}[0;42m"
+BLUE_BLOCK="${C}[0;44m"
+INDIGO_BLOCK="${C}[0;45m"
+VIOLET_BLOCK="${C}[0;105m"
+
+Info() {
+printf "Not Another Enumeration Script!\n"
+line="${RED_BLOCK}   ${PLAIN}  _   _          ______  _____ "
+printf %s"\n" "$line"
+line="${ORANGE_BLOCK}   ${PLAIN} | \ | |   /\   |  ____|/ ____|"
+printf %s"\n" "$line"
+line="${YELLOW_BLOCK}   ${PLAIN} |  \| |  /  \  | |__  | (___  "
+printf %s"\n" "$line"
+line="${GREEN_BLOCK}   ${PLAIN} | . \` | / /\ \ |  __|  \___ \ "
+printf %s"\n" "$line"
+line="${BLUE_BLOCK}   ${PLAIN} | |\  |/ ____ \| |____ ____) |"
+printf %s"\n" "$line"
+line="${INDIGO_BLOCK}   ${PLAIN} |_| \_/_/    \_\______|_____/ "
+printf %s"\n" "$line"
+line="${VIOLET_BLOCK}   ${PLAIN} created by @nyeprior :)"
+printf %s"\n\n" "$line"
+}
+
+
+Help() {
+	# Display Help
+	echo "Add description of the script functions here."
+	echo
+	echo "Syntax: naes.sh [-t|a|h]"
+	echo "options:"
+	echo "-t [target-ip]"
+	echo "		-- Enumerate a target."
+	echo "-a [target-ip]"
+	echo "		-- Analyse results for previous target."
+	echo "-h     Print this help."
+	echo "		-- Print help."
+	echo
+}
+
+TitleMessage(){
+	text=$1
+	printf %s"\n" "$dashsep"
+	printf "${CYAN}%s${PLAIN}\n" "$text"
+}
+
+SuccessMessage(){
+	printf "${GREEN}[!]${PLAIN} %s\n" "$1"
+}
+
+FailedMessage(){
+	printf "${RED}[?]${PLAIN} %s\n" "$1"
+}
+
+InfoMessage(){
+	printf "${BLUE}[*]${PLAIN} %s\n" "$1"
+}
+
+DisplayCommand(){
+	printf "${CODE}%s${PLAIN}\n" "$1"
+}
+
+ExternalLink(){
+	printf "${GREEN}[%s]${PLAIN} --> ${URL}%s${PLAIN}\n" "$1" "$2"
+}
+
+Check_Exists(){
+	if test -f "$resultsFile"; then
+		TitleMessage "Warning!"
+		InfoMessage "Existing results for $target found"
+		printf "Path: ${YELLOW}%s${PLAIN}\n" "$resultsPath"
+		read -rp "Overwrite? [y/N] " yn
+		case $yn in
+		[yY])
+			printf "${RED}Overwriting existing results for ${YELLOW}%s${PLAIN}\n" "$target"
+			;;
+		*)
+			read -rp "Analyse existing results? [Y/n]" yn
+			case $yn in
+			[nN]) exit ;;
+			*)
+				Analyse_Results
+				exit
+				;;
+			esac
+			exit
+			;;
+		esac
+	fi
+}
+
+Check_HTB(){
+	TitleMessage "Hack the Box?"
+	if [[ $target =~ "10.129" ]]; then
+		InfoMessage "I think you're scanning a HTB machine."
+		read -rp "Is this right? [Y/n] " ishtb
+		case $ishtb in
+		[nN])
+			;;
+		*)
+			read -rp "Enter HTB machine name: " machine
+			htbmachine="$machine.htb"
+			inhosts=$(grep "$machine" /etc/hosts)
+			if [[ -z $inhosts ]]; then
+			printf "Adding alias for %s (%s) to /etc/hosts\n" "$target" "$htbmachine"
+			sudo -H /bin/bash -c "echo $target $htbmachine >> /etc/hosts"
+			fi
+			echo "$machine" > "$resultsPath/machine_name"
+			;;
+		esac
+	fi
+}

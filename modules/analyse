@@ -1,0 +1,72 @@
+#!/bin/bash
+
+Analyse_Results() {
+	TitleMessage "Results"
+	resultsPath="$outputFolder/$target"
+	resultsFile="$resultsPath/$target.nmap"
+	filename="allports.txt"
+	if test -f "$resultsFile"; then
+	if [ -z "${machine}" ]; then
+	machine=$(cat "$resultsPath"/machine_name)
+	htbmachine="$machine.htb"
+	fi
+	InfoMessage "Machine Name: ${YELLOW}$machine${PLAIN}"
+	if [ -z "${runtime}" ]; then
+	runtime=$(cat "$resultsPath/runtime")
+	fi
+	InfoMessage "Time ran: ${YELLOW}$runtime${PLAIN}"
+	results=$(cat "$resultsPath"/"$filename")
+	echo $dashsep
+	if grep <"$resultsPath"/"$filename" -iq 'ldap'; then
+		ExternalLink "LDAP" "$hacktricks_ldap"
+		printf "%s\n" $dashsep
+	fi
+	if grep <"$resultsPath"/"$filename" -iq 'ssh'; then
+		ExternalLink "SSH" "$hacktricks_ssh"
+		printf "%s\n" $dashsep
+	fi
+	if grep <"$resultsPath"/"$filename" -iq 'http\|https\|http-alt'; then
+		ExternalLink "WEB" "$hacktricks_web"
+		printf "DNS Subdomain Bruteforce:\n\t"
+		DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$htbmachine' -u $target -t 10"
+		printf "Webpage Bruteforce:\n\t"
+		DisplayCommand "wfuzz -c -w $seclists/Discovery/Web-Content/big.txt --sc 200 -u $target/FUZZ -t 10"
+		printf "%s\n" $dashsep
+	fi
+	if grep <"$resultsPath"/"$filename" -iq 'dns\|domain'; then
+		ExternalLink "DNS" "$hacktricks_dns"
+		printf "DNS Subdomain Bruteforce:\n\t"
+		DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$htbmachine' -u $target -t 10"
+	fi
+	if grep <"$resultsPath"/"$filename" -iq 'smb\|microsoft-ds\|netbios'; then
+		ExternalLink "SMB" "$hacktricks_smb"
+		printf "Try listing shares:\n"
+		DisplayCommand "smbclient --no-pass -L //$target"
+		printf "%s\n" $dashsep
+	fi
+	if grep <"$resultsPath"/"$filename" -iq 'kerberos'; then
+		ExternalLink "Kerberos" "$hacktricks_kerberos"
+		printf "%s\n" $dashsep
+	fi
+	if grep <"$resultsPath"/"$filename" -iq 'snmp'; then
+		ExternalLink "SNMP" "$hacktricks_snmp"
+		printf "%s\n" $dashsep
+	fi
+	domainName=$(grep <"$resultsFile" -i 'Domain name:\|Domain:')
+	FQDN=$(grep <"$resultsFile" -i 'FQDN')
+	varsFile="$resultsFile.simple"
+	if [[ $domainName != "" ]]; then
+		dname=$(echo "$domainName" | awk -F : '{print $2}' | awk -F , '{print $1}' | awk '{ gsub(/ /,""); print }')
+		printf "Domain name: %s \n" "$dname" | tee "$varsFile"
+		dn=$(echo "$dname" | awk -F '.' '{print "dc=" $1 ",dc=" $2}')
+		printf "Base dn: %s \n" "$dn" | tee -a "$varsFile"
+	fi
+	if [[ $FQDN != "" ]]; then
+		FQDN=$(echo "$FQDN" | awk -F : '{print $2}' | awk '{ gsub(/ /,""); print }')
+		printf "FQDN: %s \n" "$FQDN" | tee -a "$varsFile"
+	fi
+	InfoMessage "Full results can be found in ${YELLOW}$resultsPath${PLAIN}"
+	exit
+	fi 
+	FailedMessage "I can't find any results for $target! Check if $outputFolder/$target exists"
+}
