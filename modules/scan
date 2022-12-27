@@ -5,7 +5,7 @@ Full_Scan() {
 	TitleMessage "Stage 3: Refined Scan"
 	InfoMessage "Enumerating open ports"
 	results=$(nmap -sC -sV -Pn -p"$ports" -oA "$resultsPath"/"$target" "$target")
-	resultsFile=$resultsPath/$target.nmap
+	resultsFile="$resultsPath/$target.nmap"
 	SuccessMessage "Scanning Complete"
 	Analyse_Results
 }
