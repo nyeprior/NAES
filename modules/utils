@@ -10,6 +10,7 @@ CYAN="${C}[1;96m"
 CODE="${C}[33;3m"
 URL="${C}[1;34m${C}[4m"
 PLAIN="${C}[0m"
+PURP="${C}[1;35m"
 
 #BLOCKS OF COLOUR
 RED_BLOCK="${C}[0;41m"
@@ -45,19 +46,23 @@ Help() {
 	echo
 	echo "Syntax: naes.sh [-t|a|h]"
 	echo "options:"
-	echo "-t [target-ip]"
+	echo "-t | -target [target-ip]"
 	echo "		-- Enumerate a target."
-	echo "-a [target-ip]"
-	echo "		-- Analyse results for previous target."
-	echo "-h     Print this help."
+	echo "-a | -analyse [target-ip]"
+	echo "		-- Analyse results for previous target"
+	echo "-h | -help    Print this help."
 	echo "		-- Print help."
+	echo "-c | -clean    Clean up NAES results."
+	echo "		-- Removes the contents of $naesDir/Results"
 	echo
 }
 
 TitleMessage(){
-	text=$1
-	printf %s"\n" "$dashsep"
-	printf "${CYAN}%s${PLAIN}\n" "$text"
+	if [[ $2 = "main" ]]; then
+		printf "~~~~~~ ${CYAN}%s${PLAIN} ~~~~~~\n" "$1"
+	elif [[ $2 = "sub" ]]; then
+		printf "${CYAN}----- %s -----${PLAIN}\n" "$1"
+	fi
 }
 
 SuccessMessage(){
@@ -80,49 +85,136 @@ ExternalLink(){
 	printf "${GREEN}[%s]${PLAIN} --> ${URL}%s${PLAIN}\n" "$1" "$2"
 }
 
+AlertMessage(){
+	printf "${PURP}[-]${PLAIN} %s\n" "$1"
+}
+
 Check_Exists(){
 	if test -f "$resultsFile"; then
-		TitleMessage "Warning!"
-		InfoMessage "Existing results for $target found"
+		TitleMessage "Warning!" "sub"
+		InfoMessage "Existing results for $alias found"
+		if [[ $alias =~ ^[0-9]{1,3}\.  ]]; then
+			alias=$target
+		else
+			originalIP=$(cat $resultsPath/ip_address)
+			InfoMessage "IP: $target"
+		fi
 		printf "Path: ${YELLOW}%s${PLAIN}\n" "$resultsPath"
 		read -rp "Overwrite? [y/N] " yn
 		case $yn in
 		[yY])
 			printf "${RED}Overwriting existing results for ${YELLOW}%s${PLAIN}\n" "$target"
+			rm -rf $resultsPath
 			;;
 		*)
-			read -rp "Analyse existing results? [Y/n]" yn
+			read -rp "Analyse existing results? [Y/n] " yn
 			case $yn in
-			[nN]) exit ;;
+			[nN]) 
+			exit 
+			;;
 			*)
+				target="$alias"
 				Analyse_Results
 				exit
 				;;
 			esac
-			exit
-			;;
+				;;
 		esac
 	fi
 }
 
+SetAlias(){
+	TitleMessage "Machine Alias" "sub"
+	htb=$1
+	read -rp "Give this machine an alias? [Y/n] " yn
+	case $yn in
+	[nN])
+		fullmachine=$target
+		return
+		;;
+	*)
+		;;
+	esac 
+	case $htb in
+		[nN])
+			InfoMessage "Alias will be created as [MACHINENAME].[TLD]"
+			read -rp "Enter machine name: " machine
+			if [ -z "$machine" ]; then
+				machine="target"
+				FailedMessage "No machine name provided. Using default ($machine)"
+			fi
+			read -rp "Enter TLD: " tld
+			if [ -z "$tld" ]; then
+				tld="local"
+				FailedMessage "No TLD provided. Using default ($tld)"
+			fi
+			fullmachine="$machine.$tld"
+			;;
+		[yY])
+			read -rp "Enter machine name: " machine
+			fullmachine="$machine.htb"	
+			;;
+		esac
+		inhosts=$(grep "$fullmachine" /etc/hosts)
+		if [[ -z $inhosts ]]; then
+			InfoMessage "Adding alias for $target ($fullmachine) to /etc/hosts"  
+			sudo -H /bin/bash -c "echo $target $fullmachine >> /etc/hosts"
+		fi 
+}
+
+Create_Results_Folder(){
+	ipaddress=$1
+	alias=$2
+	if [ -z $alias ]; then
+	resultsPath="$outputFolder/$ipaddress"
+	alias=$ipaddress
+	else
+	resultsPath="$outputFolder/$alias"
+	fi
+	resultsFile=$resultsPath/$alias.nmap
+	Check_Exists
+	mkdir $resultsPath
+	echo "$alias" > "$resultsPath/machine_name"
+	echo "$ipaddress" > "$resultsPath/ip_address"
+	
+}
+
 Check_HTB(){
-	TitleMessage "Hack the Box?"
-	if [[ $target =~ "10.129" ]]; then
+	TitleMessage "Hack the Box?" "sub"
+	if [[ $target =~ 10\.129 ]]; then
 		InfoMessage "I think you're scanning a HTB machine."
 		read -rp "Is this right? [Y/n] " ishtb
 		case $ishtb in
 		[nN])
+			SetAlias "n"
 			;;
 		*)
-			read -rp "Enter HTB machine name: " machine
-			htbmachine="$machine.htb"
-			inhosts=$(grep "$machine" /etc/hosts)
-			if [[ -z $inhosts ]]; then
-			printf "Adding alias for %s (%s) to /etc/hosts\n" "$target" "$htbmachine"
-			sudo -H /bin/bash -c "echo $target $htbmachine >> /etc/hosts"
-			fi
-			echo "$machine" > "$resultsPath/machine_name"
+			SetAlias "y"
 			;;
 		esac
+	else
+		SetAlias "n"
 	fi
+	Create_Results_Folder $target $fullmachine
+}
+
+CleanUp(){
+	TitleMessage "NAES Clean-Up" "main"
+	TitleMessage "Results Folder" "sub"
+	resultsDir="$naesDir"/Results/
+	if [ -z "$(ls -A "$resultsDir")" ]; then
+	FailedMessage "Nothing to clean!"
+	exit
+	else
+	rm -rf "${resultsDir:?}"/*
+	fi
+	if [ -z "$(ls -A "$resultsDir")" ]; then
+	SuccessMessage "Results folder empty!"
+	exit
+	else
+	rm -rf "${resultsDir:?}"/*
+	FailedMessage "Something went wrong - \"$resultsDir\" is not empty. You may need to remove something manually."
+	exit
+	fi
+	
 }

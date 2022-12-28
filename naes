@@ -1,5 +1,5 @@
 #!/bin/bash
-naesDir=$( dirname -- "$0"; )
+naesDir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 source "$naesDir/.vars"
 source "$modsFolder/utils"
 
@@ -13,8 +13,12 @@ if [[ -z $seclists ]] ; then
 	seclists="/path/to/SecLists/folder"
 fi
 
-while getopts ":ht:a:e:" option; do
+while getopts "cht:a:e:" option; do
 	case $option in
+	c) # display Help
+		CleanUp
+		exit
+		;;
 	h) # display Help
 		Help
 		exit
@@ -23,12 +27,8 @@ while getopts ":ht:a:e:" option; do
 		target=$OPTARG
 		source "$modsFolder/scan"
 		source "$modsFolder/analyse"
-		resultsPath="$outputFolder/$target"
-		mkdir -p "$resultsPath"
-		resultsFile="$resultsPath/$target.nmap"
-		Check_Exists
+		TitleMessage "Starting NAES" "main"
 		Check_HTB
-		printf "Target IP: ${YELLOW} %s${PLAIN}\n" "$target"
 		Get_Open_Ports
 		exit
 		;;

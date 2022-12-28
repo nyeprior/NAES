@@ -1,18 +1,17 @@
 #!/bin/bash
 
 Analyse_Results() {
-	TitleMessage "Results"
+	TitleMessage "Results" "main"
 	resultsPath="$outputFolder/$target"
 	resultsFile="$resultsPath/$target.nmap"
-	filename="allports.txt"
+	filename="$all_ports_file"
 	if test -f "$resultsFile"; then
-	if [ -z "${machine}" ]; then
 	machine=$(cat "$resultsPath"/machine_name)
-	htbmachine="$machine.htb"
-	fi
-	InfoMessage "Machine Name: ${YELLOW}$machine${PLAIN}"
-	if [ -z "${runtime}" ]; then
 	runtime=$(cat "$resultsPath/runtime")
+	scannedIP=$(cat "$resultsPath/ip_address")
+	InfoMessage "Machine Name: ${YELLOW}$machine${PLAIN}"
+	if [[ $machine =~ ^[^1-9] ]]; then
+		InfoMessage "IP Address: ${YELLOW}$scannedIP${PLAIN}"
 	fi
 	InfoMessage "Time ran: ${YELLOW}$runtime${PLAIN}"
 	results=$(cat "$resultsPath"/"$filename")
@@ -28,15 +27,15 @@ Analyse_Results() {
 	if grep <"$resultsPath"/"$filename" -iq 'http\|https\|http-alt'; then
 		ExternalLink "WEB" "$hacktricks_web"
 		printf "DNS Subdomain Bruteforce:\n\t"
-		DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$htbmachine' -u $target -t 10"
+		DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$machine' -u $target -t 10"
 		printf "Webpage Bruteforce:\n\t"
-		DisplayCommand "wfuzz -c -w $seclists/Discovery/Web-Content/big.txt --sc 200 -u $target/FUZZ -t 10"
+		DisplayCommand "wfuzz -c -w $seclists/Discovery/Web-Content/directory-list-2.3-big.txt --sc 200 -u http://$machine/FUZZ -t 10"
 		printf "%s\n" $dashsep
 	fi
 	if grep <"$resultsPath"/"$filename" -iq 'dns\|domain'; then
 		ExternalLink "DNS" "$hacktricks_dns"
 		printf "DNS Subdomain Bruteforce:\n\t"
-		DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$htbmachine' -u $target -t 10"
+		DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$machine' -u $target -t 10"
 	fi
 	if grep <"$resultsPath"/"$filename" -iq 'smb\|microsoft-ds\|netbios'; then
 		ExternalLink "SMB" "$hacktricks_smb"
@@ -66,7 +65,7 @@ Analyse_Results() {
 		printf "FQDN: %s \n" "$FQDN" | tee -a "$varsFile"
 	fi
 	InfoMessage "Full results can be found in ${YELLOW}$resultsPath${PLAIN}"
-	exit
+	return
 	fi 
 	FailedMessage "I can't find any results for $target! Check if $outputFolder/$target exists"
 }
