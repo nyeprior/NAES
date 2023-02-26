@@ -1,71 +1,130 @@
 #!/bin/bash
+EnumLDAP(){
+	TitleMessage "LDAP Analysis" "sub"	
+	ExternalLink "LDAP" "$hacktricks_ldap"
+}
 
-Analyse_Results() {
-	TitleMessage "Results" "main"
-	resultsPath="$outputFolder/$target"
-	resultsFile="$resultsPath/$target.nmap"
-	filename="$all_ports_file"
-	if test -f "$resultsFile"; then
-	machine=$(cat "$resultsPath"/machine_name)
-	runtime=$(cat "$resultsPath/runtime")
-	scannedIP=$(cat "$resultsPath/ip_address")
-	InfoMessage "Machine Name: ${YELLOW}$machine${PLAIN}"
-	if [[ $machine =~ ^[^1-9] ]]; then
-		InfoMessage "IP Address: ${YELLOW}$scannedIP${PLAIN}"
-	fi
-	InfoMessage "Time ran: ${YELLOW}$runtime${PLAIN}"
-	results=$(cat "$resultsPath"/"$filename")
-	echo $dashsep
-	if grep <"$resultsPath"/"$filename" -iq 'ldap'; then
-		ExternalLink "LDAP" "$hacktricks_ldap"
-		printf "%s\n" $dashsep
-	fi
-	if grep <"$resultsPath"/"$filename" -iq 'ssh'; then
-		ExternalLink "SSH" "$hacktricks_ssh"
-		printf "%s\n" $dashsep
-	fi
-	if grep <"$resultsPath"/"$filename" -iq 'http\|https\|http-alt'; then
-		ExternalLink "WEB" "$hacktricks_web"
-		printf "DNS Subdomain Bruteforce:\n\t"
-		DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$machine' -u $target -t 10"
-		printf "Webpage Bruteforce:\n\t"
-		DisplayCommand "wfuzz -c -w $seclists/Discovery/Web-Content/directory-list-2.3-big.txt --sc 200 -u http://$machine/FUZZ -t 10"
-		printf "%s\n" $dashsep
-	fi
-	if grep <"$resultsPath"/"$filename" -iq 'dns\|domain'; then
-		ExternalLink "DNS" "$hacktricks_dns"
-		printf "DNS Subdomain Bruteforce:\n\t"
-		DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$machine' -u $target -t 10"
-	fi
-	if grep <"$resultsPath"/"$filename" -iq 'smb\|microsoft-ds\|netbios'; then
-		ExternalLink "SMB" "$hacktricks_smb"
-		printf "Try listing shares:\n"
-		DisplayCommand "smbclient --no-pass -L //$target"
-		printf "%s\n" $dashsep
-	fi
-	if grep <"$resultsPath"/"$filename" -iq 'kerberos'; then
-		ExternalLink "Kerberos" "$hacktricks_kerberos"
-		printf "%s\n" $dashsep
-	fi
-	if grep <"$resultsPath"/"$filename" -iq 'snmp'; then
-		ExternalLink "SNMP" "$hacktricks_snmp"
-		printf "%s\n" $dashsep
-	fi
+EnumDNS(){
+	TitleMessage "DNS Analysis" "sub"	
+	ExternalLink "DNS" "$hacktricks_dns"
 	domainName=$(grep <"$resultsFile" -i 'Domain name:\|Domain:')
 	FQDN=$(grep <"$resultsFile" -i 'FQDN')
 	varsFile="$resultsFile.simple"
 	if [[ $domainName != "" ]]; then
 		dname=$(echo "$domainName" | awk -F : '{print $2}' | awk -F , '{print $1}' | awk '{ gsub(/ /,""); print }')
-		printf "Domain name: %s \n" "$dname" | tee "$varsFile"
+		output="Domain name: $dname"
+		AlertMessage "$output"
+		echo "$output" > "$varsFile"
 		dn=$(echo "$dname" | awk -F '.' '{print "dc=" $1 ",dc=" $2}')
-		printf "Base dn: %s \n" "$dn" | tee -a "$varsFile"
+		output="Base dn: $dn"
+		AlertMessage "$output"
+		echo "$output" >> "$varsFile"
 	fi
 	if [[ $FQDN != "" ]]; then
 		FQDN=$(echo "$FQDN" | awk -F : '{print $2}' | awk '{ gsub(/ /,""); print }')
-		printf "FQDN: %s \n" "$FQDN" | tee -a "$varsFile"
+		output="FQDN: $FQDN"
+		AlertMessage "$output"
+		echo "$output" >> "$varsFile"
 	fi
-	InfoMessage "Full results can be found in ${YELLOW}$resultsPath${PLAIN}"
-	return
-	fi 
-	FailedMessage "I can't find any results for $target! Check if $outputFolder/$target exists"
+	wfuzzDesc="Use Wfuzz to brute force possible $machine subdomains"
+	DisplayCommand "wfuzz -c -w $seclists/Discovery/DNS/bitquark-subdomains-top100000.txt --sc 200 -H 'Host:FUZZ.$machine' -u $target -t 10" "$wfuzzDesc"
+}
+
+EnumKerb(){
+	TitleMessage "Kerberos Analysis" "sub"	
+	ExternalLink "Kerberos" "$hacktricks_kerberos"	
+}
+
+EnumSSH(){
+	TitleMessage "SSH Analysis" "sub"	
+	ExternalLink "SSH" "$hacktricks_ssh"
+}
+
+EnumSMB(){
+	TitleMessage "SMB Analysis" "sub"	
+	ExternalLink "SMB" "$hacktricks_smb"
+	printf "Try listing shares:\n"
+	DisplayCommand "smbclient --no-pass -L //$target"
+}
+
+EnumSNMP(){
+	TitleMessage "SNMP Analysis" "sub"	
+	ExternalLink "SNMP" "$hacktricks_snmp"
+	snmpBruteDesc="Brute-force community strings with SNMPBrute"
+	DisplayCommand "python3 $hackscripts/snmpbrute.py -f $seclists/Discovery/SNMP/snmp-onesixtyone.txt -t $target" "$snmpBruteDesc"
+}
+
+EnumWeb() {
+	TitleMessage "Web Analysis" "sub"
+	ExternalLink "WEB" "$hacktricks_web"
+	grep <"$resultsPath"/"$tcp_ports" -i 'http\|https\|http-alt' | while read -r line ; do
+	openPort=$(cut -d' ' -f1 <<< $line)
+	service="$(cut -d' ' -f2 <<< $line)"
+	AlertMessage "Port $openPort ($service) is open:" 
+	wfuzzPrefix="wfuzz -t 10 -c -w $seclists/Discovery/Web-Content/directory-list-2.3-big.txt --sc 200 -u"
+	wfuzzDesc="Use Wfuzz to brute force $machine (Port $openPort)"
+	if [[ "$openPort" == "$http" ]]; then
+		targetURL="http://$machine"
+	elif [[ "$openPort" == "$https" ]]; then
+		targetURL="https://$machine"
+	elif [[ "$openPort" == "$althttp" ]]; then
+		targetURL="http://$machine:8080"
+	else
+		targetURL="http://$machine:$openPort"
+	fi
+	DisplayCommand "$wfuzzPrefix $targetURL/FUZZ" "$wfuzzDesc"
+	wfuzzDesc="Use Wfuzz to brute force possible $machine subdomains"
+	DisplayCommand "wfuzz -c -w $seclists/Discovery/Web-Content/raft-small-words-lowercase.txt -H 'Host: FUZZ.$machine' --hc 302,400 -t 50 -H 'User-Agent: NAES' -u $targetURL" "$wfuzzDesc"
+	InfoMessage "Searching for robots.txt"
+	if [[ $(curl "$targetURL/robots.txt" -m 3 -f -s) ]]; then
+		AlertMessage "robots.txt found: $targetURL/robots.txt" 
+	else 
+		FailedMessage "No robots.txt file" 
+	fi
+	done
+}
+
+
+Analyse_Results() {
+	TitleMessage "Results" "main"
+	resultsPath="$outputFolder/$target"
+	resultsFile="$resultsPath/$target.nmap"
+	tcp_ports="$all_ports_file"
+	udp_ports="$udp_ports_file"
+	if test -f "$resultsFile"; then
+		machine=$(cat "$resultsPath"/machine_name)
+		runtime=$(cat "$resultsPath/runtime")
+		scannedIP=$(cat "$resultsPath/ip_address")
+		InfoMessage "Machine Name: ${YELLOW}$machine${PLAIN}"							
+		if [[ $machine =~ ^[^1-9] ]]; then
+			InfoMessage "IP Address: ${YELLOW}$scannedIP${PLAIN}"
+		fi
+		InfoMessage "Time ran: ${YELLOW}$runtime${PLAIN}"																				
+		if grep <"$resultsPath"/"$tcp_ports" -iq 'ldap'; then
+			EnumLDAP
+		fi
+		if grep <"$resultsPath"/"$tcp_ports" -iq 'ssh'; then
+			EnumSSH
+		fi
+		if grep <"$resultsPath"/"$tcp_ports" -iq 'http\|https\|http-alt'; then
+			EnumWeb
+		fi
+		if grep <"$resultsPath"/"$tcp_ports" -iq 'dns\|domain'; then
+			EnumDNS
+		fi
+		if grep <"$resultsPath"/"$tcp_ports" -iq 'smb\|microsoft-ds\|netbios'; then
+			EnumSMB
+		fi
+		if grep <"$resultsPath"/"$tcp_ports" -iq 'kerberos'; then
+			EnumKerb
+		fi
+		if grep <"$resultsPath"/"$udp_ports" -iq 'snmp'; then
+			EnumSNMP
+		fi
+		printf "\n"
+		InfoMessage "Full results can be found in ${YELLOW}$resultsPath${PLAIN}"
+		return
+	else 
+		FailedMessage "I can't find any results for $target! Check if $outputFolder/$target exists"
+	fi
 }

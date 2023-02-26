@@ -11,7 +11,7 @@ CODE="${C}[33;3m"
 URL="${C}[1;34m${C}[4m"
 PLAIN="${C}[0m"
 PURP="${C}[1;35m"
-
+ITALIC="${C}[0;3m"
 #BLOCKS OF COLOUR
 RED_BLOCK="${C}[0;41m"
 ORANGE_BLOCK="${C}[0;43m"
@@ -58,6 +58,7 @@ Help() {
 }
 
 TitleMessage(){
+	printf "\n"
 	if [[ $2 = "main" ]]; then
 		printf "~~~~~~ ${CYAN}%s${PLAIN} ~~~~~~\n" "$1"
 	elif [[ $2 = "sub" ]]; then
@@ -70,7 +71,7 @@ SuccessMessage(){
 }
 
 FailedMessage(){
-	printf "${RED}[?]${PLAIN} %s\n" "$1"
+	printf "${RED}[∙]${PLAIN} %s\n" "$1"
 }
 
 InfoMessage(){
@@ -78,7 +79,7 @@ InfoMessage(){
 }
 
 DisplayCommand(){
-	printf "${CODE}%s${PLAIN}\n" "$1"
+	printf "  ${RED}»${PLAIN} ${ITALIC}%s${PLAIN}\n\t${CODE}%s${PLAIN}\n" "$2" "$1"
 }
 
 ExternalLink(){
@@ -86,7 +87,7 @@ ExternalLink(){
 }
 
 AlertMessage(){
-	printf "${PURP}[-]${PLAIN} %s\n" "$1"
+	printf "${PURP}[!!]${PLAIN} %s\n" "$1"
 }
 
 Check_Exists(){
@@ -151,7 +152,8 @@ SetAlias(){
 			fullmachine="$machine.$tld"
 			;;
 		[yY])
-			read -rp "Enter machine name: " machine
+			InfoMessage ".htb TLD will be added automatically"
+			read -rp "Enter name for alias: " machine
 			fullmachine="$machine.htb"	
 			;;
 		esac
@@ -173,6 +175,7 @@ Create_Results_Folder(){
 	fi
 	resultsFile=$resultsPath/$alias.nmap
 	Check_Exists
+	rm -rf $resultsPath
 	mkdir $resultsPath
 	echo "$alias" > "$resultsPath/machine_name"
 	echo "$ipaddress" > "$resultsPath/ip_address"
@@ -206,6 +209,7 @@ CleanUp(){
 	FailedMessage "Nothing to clean!"
 	exit
 	else
+	InfoMessage "Cleaning up $resultsDir"  
 	rm -rf "${resultsDir:?}"/*
 	fi
 	if [ -z "$(ls -A "$resultsDir")" ]; then

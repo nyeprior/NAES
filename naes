@@ -3,11 +3,11 @@ naesDir="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 source "$naesDir/.vars"
 source "$modsFolder/utils"
 
-Info
 chmod +x -R "$binFolder"
 CONFIG_FILE=".config"
 if test -f "$CONFIG_FILE"; then
 	seclists=$(awk '$1=="SecLists:"{print $2}' $CONFIG_FILE)
+	hackscripts=$(awk '$1=="HackScripts:"{print $2}' $CONFIG_FILE)
 fi
 if [[ -z $seclists ]] ; then
 	seclists="/path/to/SecLists/folder"
@@ -24,6 +24,7 @@ while getopts "cht:a:e:" option; do
 		exit
 		;;
 	t) # Enter a name
+		Info
 		target=$OPTARG
 		source "$modsFolder/scan"
 		source "$modsFolder/analyse"
