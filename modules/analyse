@@ -118,8 +118,10 @@ Analyse_Results() {
 		if grep <"$resultsPath"/"$tcp_ports" -iq 'kerberos'; then
 			EnumKerb
 		fi
-		if grep <"$resultsPath"/"$udp_ports" -iq 'snmp'; then
-			EnumSNMP
+		if test -f "$udp_ports_file"; then
+			if grep <"$resultsPath"/"$udp_ports" -iq 'snmp'; then
+				EnumSNMP
+			fi
 		fi
 		printf "\n"
 		InfoMessage "Full results can be found in ${YELLOW}$resultsPath${PLAIN}"
